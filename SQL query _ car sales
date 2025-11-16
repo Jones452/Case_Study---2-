@@ -1,0 +1,144 @@
+-- To check all names in my data
+SELECT *
+FROM bright.tv.bright_tv_user_profiles
+LIMIT 10;
+
+SELECT *
+FROM bright.tv.bright_tv_viewership v
+LIMIT 10;
+
+-- Exploratory data Analysis
+
+-- Checking total number of rows
+SELECT COUNT(*) FROM bright.tv.bright_tv_user_profiles;
+
+SELECT COUNT(*) FROM bright.tv.bright_tv_viewership v;
+
+-- Checking for key values that are missing
+SELECT * 
+FROM bright.tv.bright_tv_user_profiles
+WHERE UserID IS NULL OR Gender IS NULL OR Age IS NULL;
+
+-- Date and time functions
+
+-- Checking the earliest record date
+SELECT MIN(RecordDate2) AS date
+FROM bright.tv.bright_tv_viewership v;
+
+-- Checking the latest record date
+SELECT MAX(RecordDate2) AS date
+FROM bright.tv.bright_tv_viewership v;
+
+-- Checking the earliest duration time
+SELECT MIN(Duration2) AS first_operating_time
+FROM bright.tv.bright_tv_viewership v;
+
+-- Checking the latest duration time
+SELECT MAX(Duration2) AS last_operating_time
+FROM bright.tv.bright_tv_viewership v;
+
+-- Checking number of channel types
+SELECT DISTINCT Channel2
+FROM bright.tv.bright_tv_viewership v;
+
+-- User profile and viewership join with derived columns
+SELECT
+    -- Original columns
+    year,
+    make,
+    model,
+    trim,
+    body,
+    transmission,
+    vin,
+    state,
+    condition,
+    odometer,
+    color,
+    interior,
+    seller,
+    mmr,
+    sellingprice,
+    saledate,
+
+    -- Cleaned date format (remove weekday prefix)
+    TRIM(REGEXP_REPLACE(saledate, '^[A-Za-z]{3}\\s+', '')) AS cleaned_saledate,
+
+    -- Parsed timestamp
+    TRY_TO_TIMESTAMP_NTZ(
+        TRIM(REGEXP_REPLACE(saledate, '^[A-Za-z]{3}\\s+', '')),
+        'MON DD YYYY HH24:MI:SS'
+    ) AS sale_timestamp,
+
+    -- Date parts
+    TO_DATE(TRY_TO_TIMESTAMP_NTZ(
+        TRIM(REGEXP_REPLACE(saledate, '^[A-Za-z]{3}\\s+', '')),
+        'MON DD YYYY HH24:MI:SS'
+    )) AS sale_date,
+
+    TO_VARCHAR(TRY_TO_TIMESTAMP_NTZ(
+        TRIM(REGEXP_REPLACE(saledate, '^[A-Za-z]{3}\\s+', '')),
+        'MON DD YYYY HH24:MI:SS'
+    ), 'YYYY-MM') AS sale_month,
+
+     TO_VARCHAR(TRY_TO_TIMESTAMP_NTZ(
+        TRIM(REGEXP_REPLACE(saledate, '^[A-Za-z]{3}\\s+', '')),
+        'MON DD YYYY HH24:MI:SS'
+    ), 'YYYY') AS sale_year,
+
+     TO_VARCHAR(TRY_TO_TIMESTAMP_NTZ(
+        TRIM(REGEXP_REPLACE(saledate, '^[A-Za-z]{3}\\s+', '')),
+        'MON DD YYYY HH24:MI:SS'
+    ), 'DY') AS sale_weekday,
+
+    DATE_PART('WEEK',
+        TRY_TO_TIMESTAMP_NTZ(
+            TRIM(REGEXP_REPLACE(saledate, '^[A-Za-z]{3}\\s+', '')),
+            'MON DD YYYY HH24:MI:SS'
+        )
+    ) AS sale_week_of_year,
+
+    -- Numeric conversions
+    TRY_TO_NUMBER(odometer) AS odometer_num,
+    TRY_TO_NUMBER(mmr) AS mmr_num,
+    TRY_TO_NUMBER(sellingprice) AS sellingprice_num,
+
+    -- Profit / Margin
+    CASE
+        WHEN TRY_TO_NUMBER(sellingprice) IS NOT NULL
+         AND TRY_TO_NUMBER(mmr) IS NOT NULL
+        THEN TRY_TO_NUMBER(sellingprice) - TRY_TO_NUMBER(mmr)
+    END AS profit_vs_mmr,
+
+    CASE
+        WHEN TRY_TO_NUMBER(sellingprice) IS NOT NULL
+         AND TRY_TO_NUMBER(sellingprice) <> 0
+         AND TRY_TO_NUMBER(mmr) IS NOT NULL
+        THEN (TRY_TO_NUMBER(sellingprice) - TRY_TO_NUMBER(mmr))
+             / NULLIF(TRY_TO_NUMBER(sellingprice), 0) * 100
+    END AS profit_margin_pct,
+
+    -- Valid/Invalid date flag
+    CASE
+        WHEN TRY_TO_TIMESTAMP_NTZ(
+            TRIM(REGEXP_REPLACE(saledate, '^[A-Za-z]{3}\\s+', '')),
+            'MON DD YYYY HH24:MI:SS'
+        ) IS NULL THEN 'INVALID'
+        ELSE 'VALID'
+    END AS date_status,
+
+CASE
+    WHEN TRY_TO_NUMBER(sellingprice) > TRY_TO_NUMBER(mmr) THEN 'Above Market'
+    WHEN TRY_TO_NUMBER(sellingprice) = TRY_TO_NUMBER(mmr) THEN 'At Market'
+    WHEN TRY_TO_NUMBER(sellingprice) < TRY_TO_NUMBER(mmr) THEN 'Below Market'
+    ELSE 'Unknown'
+END AS market_position,
+
+CASE
+    WHEN TRY_TO_NUMBER(sellingprice) - TRY_TO_NUMBER(mmr) >= 10000 THEN 'High Profit'
+    WHEN TRY_TO_NUMBER(sellingprice) - TRY_TO_NUMBER(mmr) BETWEEN 2000 AND 9999.99 THEN 'Medium Profit'
+    WHEN TRY_TO_NUMBER(sellingprice) - TRY_TO_NUMBER(mmr) BETWEEN 0 AND 1999.99 THEN 'Low Profit'
+    ELSE 'Loss (Below MMR)'
+END AS profit_tier
+
+FROM bright.car.sales
