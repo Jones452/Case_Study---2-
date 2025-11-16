@@ -61,7 +61,7 @@ Deliverables
 5.	Gantt chart and miro project plan
 
 Tools Used
-•	Databricks SQL – Data extraction and transformations
+•	Snowflake SQL – Data extraction and transformations
 •	Excel  – Pivot tables, charts, dashboards
 •	Miro – Project flow and visualization mapping
 •	PDF / PPTX – Deliverable reporting
