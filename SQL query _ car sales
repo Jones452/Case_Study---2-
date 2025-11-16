@@ -6,7 +6,7 @@ LIMIT 10;
 SELECT *
 FROM bright.tv.bright_tv_viewership v
 LIMIT 10;
-
+-----------------------------------------------------------------------------------------
 -- Exploratory data Analysis
 
 -- Checking total number of rows
@@ -40,7 +40,7 @@ FROM bright.tv.bright_tv_viewership v;
 -- Checking number of channel types
 SELECT DISTINCT Channel2
 FROM bright.tv.bright_tv_viewership v;
-
+----------------------------------------------------------------------------------------------------------------------
 -- User profile and viewership join with derived columns
 SELECT
     -- Original columns
